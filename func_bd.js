@@ -1,19 +1,25 @@
-const { Pool } = require("pg");
+const pool = require('./config')
 
+pool.connect(error => {
+  if(error){
+    console.log(`Error para conectarse a la base de datos ${error}`)
+  }
+})
 
-const config = {
-  user: 'postgres',
-  host: 'localhost',
-  database: 'bancosolar',
-  password: '1234',
-  min: 3,
-  max: 10,
-  idleTimeoutMillis: 5000,       // tiempo de espera antes de botar
-  connectionTimeoutMillis: 2000, // tiempo de espera para entrar
-  port: 5432
+//---Funcion getForm para utilizar ajaxs--->
+function getForm(req) {
+  return new Promise((res, rej) => {
+    let str = "";
+    req.on("data", function (chunk) {
+      str += chunk;
+    });
+    req.on("end", function () {
+      //console.log('str', str);
+      const obj = JSON.parse(str);
+      res(obj);
+    });
+  });
 }
-
-const pool = new Pool(config)
 
 //---Funciones Usuario--->
 const nuevoUsuario = async (nombre, balance) => {
@@ -51,7 +57,6 @@ const editarUsuario = async (id, nombre, balance) => {
     console.log(error)
   }
   client.release()
-
 }
 
 const eliminarUsuario = async (id) => {
@@ -72,47 +77,76 @@ const eliminarUsuario = async (id) => {
 }
 //----Funciones Transferencias--->
 
-const nuevaTransferencia = async (emisor, receptor, monto) => {
+const nuevaTransferencia = async (emisor, receptor, monto_string) => {
+  // validamos que el monto sea un entero
+  let monto = parseInt(monto_string)
+  if (isNaN(monto)) {
+    throw 'El monto debe ser un número'
+  }
+
+  // validamos que el monto sea positivo
+  if (monto <= 0) {
+    throw 'El monto debe ser mayor a 0'
+  }
+  // ahoora hacemos los cambios eb la base de datos
   const client = await pool.connect()
 
+  const obj_emisor = await client.query({
+    text: `select * from usuarios where nombre= $1`,
+    values: [emisor]
+  })
+
+  const obj_receptor = await client.query({
+    text: `select * from usuarios where nombre= $1`,
+    values: [receptor]
+  })
+  //console.log(obj_emisor);
+  // validamos que el emisor tenga suficientes fondos
+  if (obj_emisor.rows[0].balance < monto ){
+    throw 'El monto a transferir es mayor a su balance'
+  }
+
+  if(obj_emisor.rows[0].id === obj_receptor.rows[0].id){
+    throw 'El receptor no puede ser igual al emisor'
+  }
+  
+
   try {
-    const id_emisor = await client.query({
-      text: `select id from usuarios where nombre= $1`,
-      values: [emisor]
-    })
-    console.log(id_emisor.rows[0].id)
-
-    const id_receptor = await client.query({
-      text: `select id from usuarios where nombre= $1`,
-      values: [receptor]
-    })
-
     await client.query('insert into transferencias (emisor, receptor, monto) values ($1, $2, $3)',
-      [id_emisor.rows[0].id, id_receptor.rows[0].id, monto])
+      [obj_emisor.rows[0].id, obj_receptor.rows[0].id, monto])
 
-    client.release()
+      //---- cambio los balances. Al emisor le resto el monto, y al receptor le sumo el monto
+    const descuento = obj_emisor.rows[0].balance - monto;
+    const deposito = obj_receptor.rows[0].balance + monto;
+
+    await client.query(`update usuarios set balance=${descuento} where id=${obj_emisor.rows[0].id}`)
+    await client.query(`update usuarios set balance=${deposito} where id=${obj_receptor.rows[0].id}`)
 
   } catch (error) {
     console.log(error)
   }
+  client.release()
 }
 
 async function mostrarTransferencias() {
   const client = await pool.connect()
+  let datos;
   try {
     const mostrarUsuarios = await client.query({
       text: `select transferencias.id, emisores.nombre as Emisor, receptores.nombre as Receptor, Monto, Fecha FROM transferencias
     JOIN usuarios as emisores ON emisor=emisores.id join usuarios as receptores on receptor= receptores.id`,
       rowMode: 'array'
     })
-    let datos = mostrarUsuarios.rows
-    client.release()
-    return datos
-
+    datos = mostrarUsuarios.rows
   } catch (error) {
     console.log(error)
   }
+  client.release()
+  return datos
 }
+
+
+
 
 //---Funciones calculos balance--->
 
@@ -125,5 +159,6 @@ module.exports = {
   editarUsuario,
   eliminarUsuario,
   nuevaTransferencia,
-  mostrarTransferencias
+  mostrarTransferencias, 
+  getForm
 };

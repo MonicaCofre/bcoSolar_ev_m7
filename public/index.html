@@ -223,6 +223,12 @@
           }),
         });
         const data = await response.json();
+
+        if (response.status >= 400) {
+          alert(data.error)
+          return;
+        }
+        
         location.reload();
       } catch (e) {
         console.log(e);
