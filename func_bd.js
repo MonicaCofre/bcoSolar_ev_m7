@@ -6,6 +6,33 @@ pool.connect(error => {
   }
 })
 
+//---Funciones calculos balance--->
+//---Validaciones --->
+/*
+  function validar(monto_string){
+    let monto = parseInt(monto_string)
+      if (isNaN(monto)) {
+        throw 'El monto debe ser un número'
+      }
+      // validamos que el monto sea positivo
+      if (monto <= 0) {
+        throw 'El monto debe ser mayor a 0'
+      }
+  }
+  
+
+  function validarBalace(obj_emisor, obj_receptor){
+    if (obj_emisor.rows[0].balance < monto ){
+      throw 'El monto a transferir es mayor a su balance'
+    }
+  
+    if(obj_emisor.rows[0].id === obj_receptor.rows[0].id){
+      throw 'El receptor no puede ser igual al emisor'
+    }
+    
+
+  }
+*/
 //---Funcion getForm para utilizar ajaxs--->
 function getForm(req) {
   return new Promise((res, rej) => {
@@ -148,7 +175,6 @@ async function mostrarTransferencias() {
 
 
 
-//---Funciones calculos balance--->
 
 
 

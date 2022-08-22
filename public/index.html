@@ -159,6 +159,9 @@
     </div>
   </div>
 
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  
   <script>
     const setInfoModal = (nombre, balance, id) => {
       $("#nombreEdit").val(nombre);
@@ -225,7 +228,7 @@
         const data = await response.json();
 
         if (response.status >= 400) {
-          alert(data.error)
+          Swal.fire(data.error)
           return;
         }
         
