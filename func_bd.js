@@ -1,38 +1,40 @@
 const pool = require('./config')
 
 pool.connect(error => {
-  if(error){
+  if (error) {
     console.log(`Error para conectarse a la base de datos ${error}`)
   }
 })
 
 //---Funciones calculos balance--->
 //---Validaciones --->
-/*
-  function validar(monto_string){
-    let monto = parseInt(monto_string)
-      if (isNaN(monto)) {
-        throw 'El monto debe ser un número'
-      }
-      // validamos que el monto sea positivo
-      if (monto <= 0) {
-        throw 'El monto debe ser mayor a 0'
-      }
+function validar(monto_string) {
+  // validamos que el monto sea un entero
+  let monto = parseInt(monto_string)
+  if (isNaN(monto)) {
+    throw 'El monto debe ser un número'
   }
-  
-
-  function validarBalace(obj_emisor, obj_receptor){
-    if (obj_emisor.rows[0].balance < monto ){
-      throw 'El monto a transferir es mayor a su balance'
-    }
-  
-    if(obj_emisor.rows[0].id === obj_receptor.rows[0].id){
-      throw 'El receptor no puede ser igual al emisor'
-    }
-    
-
+  // validamos que el monto sea positivo
+  if (monto <= 0) {
+    throw 'El monto debe ser mayor a 0'
   }
-*/
+}
+function validarBalace(obj_emisor, monto_string) {
+  // validamos que el emisor tenga suficientes fondos
+  let monto = parseInt(monto_string)
+  if (obj_emisor.rows[0].balance < monto) {
+    throw 'El monto a transferir es mayor a su balance'
+  }
+}
+function validarEmisorReceptor(obj_emisor, obj_receptor) {
+  // validamos que emisor y receptor no sean la misma persona
+  if (obj_emisor.rows[0].id === obj_receptor.rows[0].id) {
+    throw 'El receptor no puede ser igual al emisor'
+  }
+
+
+}
+
 //---Funcion getForm para utilizar ajaxs--->
 function getForm(req) {
   return new Promise((res, rej) => {
@@ -105,50 +107,30 @@ const eliminarUsuario = async (id) => {
 //----Funciones Transferencias--->
 
 const nuevaTransferencia = async (emisor, receptor, monto_string) => {
-  // validamos que el monto sea un entero
-  let monto = parseInt(monto_string)
-  if (isNaN(monto)) {
-    throw 'El monto debe ser un número'
-  }
-
-  // validamos que el monto sea positivo
-  if (monto <= 0) {
-    throw 'El monto debe ser mayor a 0'
-  }
-  // ahoora hacemos los cambios eb la base de datos
   const client = await pool.connect()
+  validar(monto_string)
 
   const obj_emisor = await client.query({
     text: `select * from usuarios where nombre= $1`,
     values: [emisor]
   })
-
   const obj_receptor = await client.query({
     text: `select * from usuarios where nombre= $1`,
     values: [receptor]
   })
-  //console.log(obj_emisor);
-  // validamos que el emisor tenga suficientes fondos
-  if (obj_emisor.rows[0].balance < monto ){
-    throw 'El monto a transferir es mayor a su balance'
-  }
-
-  if(obj_emisor.rows[0].id === obj_receptor.rows[0].id){
-    throw 'El receptor no puede ser igual al emisor'
-  }
-  
+  validarBalace(obj_emisor, monto_string)
+  validarEmisorReceptor(obj_emisor, obj_receptor)
 
   try {
     await client.query('insert into transferencias (emisor, receptor, monto) values ($1, $2, $3)',
       [obj_emisor.rows[0].id, obj_receptor.rows[0].id, monto])
-
-      //---- cambio los balances. Al emisor le resto el monto, y al receptor le sumo el monto
+    //---- cambios en balances. Al emisor le resto el monto, y al receptor le sumo el monto --->
     const descuento = obj_emisor.rows[0].balance - monto;
     const deposito = obj_receptor.rows[0].balance + monto;
-
     await client.query(`update usuarios set balance=${descuento} where id=${obj_emisor.rows[0].id}`)
     await client.query(`update usuarios set balance=${deposito} where id=${obj_receptor.rows[0].id}`)
 
+    
   } catch (error) {
     console.log(error)
   }
@@ -185,6 +167,6 @@ module.exports = {
   editarUsuario,
   eliminarUsuario,
   nuevaTransferencia,
-  mostrarTransferencias, 
+  mostrarTransferencias,
   getForm
 };

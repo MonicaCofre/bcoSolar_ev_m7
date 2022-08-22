@@ -161,7 +161,7 @@
 
   <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  
+
   <script>
     const setInfoModal = (nombre, balance, id) => {
       $("#nombreEdit").val(nombre);
@@ -199,6 +199,7 @@
             balance,
           }),
         });
+
         $("form:first input:first").val("");
         $("form:first input:nth-child(2)").val("");
         location.reload();
@@ -231,7 +232,7 @@
           Swal.fire(data.error)
           return;
         }
-        
+
         location.reload();
       } catch (e) {
         console.log(e);
